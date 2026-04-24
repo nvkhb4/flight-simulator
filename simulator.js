@@ -72,10 +72,35 @@ function createProgram(gl, vsSource, fsSource) {
     return prog;
 }
 
+//height to color function
+//takes y coordinate and colors terrain accordingly
+function height_to_color(y) {
+    //colors
+    const blue = [0,0,1];
+    const green = [0,1,0];
+    const brown = [0.6,0.4,0.2];
+    const white = [1,1,1];
+
+    if (y<0) return blue;
+    if (y<0.5) return interpolated_color(blue, green, y/0.5);
+    if (y<1.5) return interpolated_color(green, brown, (y-1.5)/0.5);
+    return interpolated_color(brown, white, (y-1.5)/0.5);
+}
+
+//interpolate between colors (smoother transitions)
+function interpolated_color(c1, c2, t) {
+    return[
+        c1[0] + (c2[0] - c1[0]) * t,
+        c1[1] + (c2[1] - c1[1]) * t,
+        c1[2] + (c2[2] - c1[2]) * t
+    ];
+}
+
 //get_patch function
 function get_patch(xmin, xmax, zmin, zmax) {
     const positions = [];
     const indices = [];
+    const colorData = [];
 
     //map grid coords (i, j) to world coords (x, y, z)
     for (let i = 0; i <= GRID_SIZE; i++) {
@@ -84,6 +109,10 @@ function get_patch(xmin, xmax, zmin, zmax) {
             const z = zmin + (j/GRID_SIZE) * (zmax-zmin);
             const y = noise.noise2D(x * FREQUENCY, z * FREQUENCY) * HEIGHT_MAX;
             positions.push(x, y, z);
+
+            //color information
+            const color = height_to_color(y);
+            colorData.push(color[0], color[1], color[2]);
         }
     }
 
@@ -130,6 +159,7 @@ function get_patch(xmin, xmax, zmin, zmax) {
         positions: new Float32Array(positions),
         indices: new Uint32Array(indices),   
         lineIndices: new Uint32Array(lineIndices),
+        colors: new Float32Array(colorData),
     };
 }
 
@@ -170,6 +200,15 @@ function initMesh() {
     const aPosition = gl.getAttribLocation(program, "aPosition");
     gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(aPosition);
+
+    //color
+    const colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, patch.colors, gl.STATIC_DRAW);
+
+    const aColor = gl.getAttribLocation(program, "aColor");
+    gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aColor);
 
     gl.enable(gl.DEPTH_TEST);
 }
