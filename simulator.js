@@ -13,28 +13,31 @@ const FREQUENCY = 0.25;
 //view mode: 0=points, 1=wireframe, 2=faces
 let viewMode = 1;
 
+//shading mode: 0=flat, 1=smooth, 2=Phong
+let shadingMode = 1;
+
 //for smoother terrain (out of hw scope)
 const noise = new PerlinNoise(90); // seed of 20 for reproducible terrain
 
-//vertex shader
-const vertex_sh = `
-attribute vec3 aPosition;
-uniform mat4 uProj;
-uniform mat4 uView;
+//shader sources (loaded from files)
+let vertex_sh = '';
+let fragment_sh = '';
 
-void main() {
-    gl_Position = uProj * uView * vec4(aPosition, 1.0);
-    gl_PointSize = 3.0;
+//load shaders from external files
+async function loadShaders() {
+    try {
+        const vertResp = await fetch('shaders/vertex.glsl');
+        vertex_sh = await vertResp.text();
+        
+        const fragResp = await fetch('shaders/fragment.glsl');
+        fragment_sh = await fragResp.text();
+        
+        console.log('Shaders loaded successfully');
+    } catch (error) {
+        console.error('Failed to load shaders:', error);
+        throw error;
+    }
 }
-`;
-
-//fragment shader
-const fragment_sh = `
-precision mediump float;
-void main() {
-    gl_FragColor = vec4(1, 1, 1, 0.3);
-}
-`;
 
 //helper functions
 function createShader(gl, type, source) {
@@ -219,7 +222,10 @@ function resizeCanvas() {
 }
 
 //start
-initMesh();
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
-requestAnimationFrame(render);
+(async () => {
+    await loadShaders();
+    initMesh();
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    requestAnimationFrame(render);
+})();

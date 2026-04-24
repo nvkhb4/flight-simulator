@@ -21,8 +21,9 @@ window.addEventListener("keydown", (e) => {
     if (e.key === 'Escape') window.close();
     
     //view mode toggle (V)
-    if (e.key === 'v' || e.key === 'V') viewMode = (viewMode + 1) % 3;
-});
+    if (e.key === 'v' || e.key === 'V') viewMode = (viewMode + 1) % 3;    
+    // Shading mode toggle (C)
+    if (e.key === 'c' || e.key === 'C') shadingMode = (shadingMode + 1) % 3;});
 
 window.addEventListener("keyup", (e) => {
     keys[e.key.toLowerCase()] = false;
