@@ -1,6 +1,6 @@
 const camera = {
     position: [0, 3, 0],
-    forward: [0, 0, -1],
+    forward: normalize([0, -0.3, -1]),
     up: [0, 1, 0],
     right: [1, 0, 0],
     pitch: 0,
