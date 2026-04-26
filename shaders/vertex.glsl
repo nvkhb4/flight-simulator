@@ -1,15 +1,19 @@
+#version 300 es
 precision mediump float;
 
-attribute vec3 aPosition;
-attribute vec3 aColor;
-attribute vec3 aNormal;
+layout(location = 0) in vec3 aPosition;
+layout(location = 1) in vec3 aColor;
+layout(location = 2) in vec3 aNormal;
+
 uniform mat4 uProj;
 uniform mat4 uView;
 uniform vec3 uLightPos;
-varying vec3 vColor;
-varying vec3 vLitColor;
-varying vec3 vNormal;
-varying vec3 vPosition;
+uniform vec3 uViewPos;
+
+out vec3 vColor;
+flat out vec3 vLitColor;
+out vec3 vNormal;
+out vec3 vPosition;
 
 void main() {
     gl_Position = uProj * uView * vec4(aPosition, 1.0);
@@ -23,7 +27,15 @@ void main() {
     vec3 lightDir = normalize(uLightPos - aPosition);
     float diff = max(dot(norm, lightDir), 0.0);
     
+    // Ambient and diffuse
     vec3 ambient = 0.3 * aColor;
     vec3 diffuse = diff * aColor;
-    vLitColor = ambient + diffuse;
+    
+    // Specular (smooth shading)
+    vec3 viewDir = normalize(uViewPos - aPosition);
+    vec3 reflectDir = reflect(-lightDir, norm);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+    vec3 specular = 0.5 * spec * vec3(1.0);
+    
+    vLitColor = ambient + diffuse + specular;
 }

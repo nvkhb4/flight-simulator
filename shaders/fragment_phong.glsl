@@ -1,10 +1,14 @@
+#version 300 es
 precision mediump float;
-varying vec3 vColor;
-varying vec3 vNormal;
-varying vec3 vPosition;
+
+in vec3 vColor;
+in vec3 vNormal;
+in vec3 vPosition;
 
 uniform vec3 uLightPos;
 uniform vec3 uViewPos;
+
+out vec4 FragColor;
 
 void main() {
     //ambient
@@ -22,5 +26,5 @@ void main() {
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
     vec3 specular = 0.5 * spec * vec3(1.0);
 
-    gl_FragColor = vec4(ambient + diffuse + specular, 1.0);
+    FragColor = vec4(ambient + diffuse + specular, 1.0);
 }

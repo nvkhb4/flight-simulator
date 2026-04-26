@@ -1,7 +1,11 @@
+#version 300 es
 precision mediump float;
-varying vec3 vLitColor;
+
+flat in vec3 vLitColor;
+
+out vec4 FragColor;
 
 void main() {
     // Smooth/Gouraud shading - lighting was computed per vertex and interpolated
-    gl_FragColor = vec4(vLitColor, 1.0);
+    FragColor = vec4(vLitColor, 1.0);
 }

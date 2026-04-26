@@ -328,7 +328,7 @@ function initMesh() {
     gl.bufferData(gl.ARRAY_BUFFER, patch.normals, gl.STATIC_DRAW);
 
     // ── Water plane ──────────────────────────────────────────────
-    const water = createWaterPlane(-20, 20, -40, 0); // same bounds as terrain patch
+    const water = createWaterPlane(-20, 20, -60, 0); // same bounds as terrain patch
     waterIndexCount = water.indices.length;
 
     waterPositionBuffer = gl.createBuffer();
@@ -443,23 +443,11 @@ function initMesh() {
 }
 
 let lastTime = Date.now();
-let renderCount = 0;
 
 function render() {
     const now = Date.now();
     const deltaTime = (now - lastTime) / 1000;
     lastTime = now;
-
-    renderCount++;
-    if (renderCount === 1) {
-        console.log('First render call - debugging info:');
-        console.log('Canvas size:', canvas.width, 'x', canvas.height);
-        console.log('Viewport:', gl.getParameter(gl.VIEWPORT));
-        console.log('IndexCount (terrain):', indexCount);
-        console.log('LineIndexCount:', lineIndexCount);
-        console.log('ViewMode:', viewMode, '(0=pts, 1=wire, 2=faces)');
-        console.log('Camera pos:', camera.position);
-    }
 
     handleInput(deltaTime);
 
