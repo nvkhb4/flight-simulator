@@ -1,12 +1,30 @@
 # Flight Simulator
 
-A WebGL 2.0 flight simulator with dynamic terrain generation, multiple shading modes, and real-time camera controls.
+A WebGL 2.0 flight simulator with **infinite procedural terrain**, dynamic patch streaming, multiple shading modes, and real-time camera controls.
+
+## Features
+
+- **Infinite Terrain**: Dynamic streaming system generates terrain on-demand as the camera moves
+- **Procedural Generation**: Perlin-noise-based heightmaps with smooth interpolation
+- **Multiple Shading Modes**: Flat, Smooth (Gouraud), and Phong shading
+- **Flexible View Modes**: Points cloud, wireframe, and solid mesh rendering
+- **Real-time Camera Control**: Full 6-DOF flight dynamics with rotation constraints
+- **Water Rendering**: Separate shader for water surfaces below ground level
+- **Frustum Control**: Real-time adjustment of viewing volume parameters
 
 ## Running the Program
 
 1. Open `simulator.html` in a web server (recommended: VS Code Live Server extension)
-2. The simulator will load shaders and initialize terrain automatically
-3. You should see a wireframe terrain with a flight camera positioned above it
+
+## How Infinite Terrain Works
+
+The terrain is organized as a grid of 40×40-unit patches. The simulator maintains a sliding window of **9 patches (3×3 grid)** around the camera's current position:
+
+- Patches are **pre-allocated once** at startup with GPU buffers
+- As the camera moves, `updateTerrain()` detects which patches are needed
+- New terrain data is generated and **uploaded into recycled buffers** (instead of creating/destroying GPU memory)
+- Old patches behind the camera are marked inactive and available for reuse
+- This approach keeps GPU memory usage constant while supporting infinite terrain
 
 ## Controls
 
@@ -76,13 +94,22 @@ A WebGL 2.0 flight simulator with dynamic terrain generation, multiple shading m
 
 ## Terrain Features
 
-- **Height Field**: Procedurally generated using Perlin noise
-- **Coloring**: Height-mapped colors
-  - Blue: Below ground level (water)
+- **Height Field**: Procedurally generated using Perlin noise with multi-octave interpolation
+- **Infinite Canvas**: Terrain extends indefinitely; new terrain patches stream in as you fly
+- **Height-mapped Coloring**: 
+  - Blue: Below ground level (water covered)
   - Green: Ground level (y = 0)
-  - Brown: Mid altitude
+  - Brown: Mid altitude (mountains)
   - White: Peaks (high altitude)
-- **Normals**: Per-vertex normals computed from face normals for smooth shading
+- **Normals**: Per-vertex normals computed from face geometry for smooth shading
+- **Water**: Flat water surface at y = 0 with separate shader rendering
+
+## Performance Notes
+
+- Terrain patches are generated on CPU as needed and uploaded to GPU
+- Uses DYNAMIC_DRAW buffers that are recycled rather than recreated
+- Patch generation occurs every frame by default; can be throttled to every N frames if hitching occurs
+- GPU memory usage is constant (9 patches × 2 VAOs per patch + water)
 
 ## Browser Requirements
 
