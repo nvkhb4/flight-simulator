@@ -6,7 +6,7 @@ window.addEventListener("keydown", (e) => {
     //frustum controls with constraints
     if (e.key === '1') frustum.left = Math.max(-50, frustum.left - 1);
     if (e.key === '!' || (e.shiftKey && e.key === '1')) frustum.left = Math.min(frustum.right - 1, frustum.left + 1);
-    if (e.key === '2') frustum.right = Math.max(frustum.left + 1, frustum.right - 1);
+    if (e.key === '2') frustum.right = Math.min(50, Math.max(frustum.left + 1, frustum.right - 1));
     if (e.key === '@' || (e.shiftKey && e.key === '2')) frustum.right = Math.min(50, frustum.right + 1);
     if (e.key === '3') frustum.top = Math.max(frustum.bottom + 1, frustum.top - 1);
     if (e.key === '#' || (e.shiftKey && e.key === '3')) frustum.top = Math.min(50, frustum.top + 1);
@@ -15,7 +15,7 @@ window.addEventListener("keydown", (e) => {
     if (e.key === '5') frustum.near = Math.max(0.01, frustum.near - 0.5);
     if (e.key === '%' || (e.shiftKey && e.key === '5')) frustum.near = Math.min(frustum.far - 0.1, frustum.near + 0.5);
     if (e.key === '6') frustum.far = Math.max(frustum.near + 0.1, frustum.far - 10);
-    if (e.key === '^' || (e.shiftKey && e.key === '6')) frustum.far = Math.max(frustum.near + 0.1, frustum.far + 10);
+    if (e.key === '^' || (e.shiftKey && e.key === '6')) frustum.far = Math.min(100, Math.max(frustum.near + 0.1, frustum.far + 10));
     
     //quit
     if (e.key === 'Escape') window.close();

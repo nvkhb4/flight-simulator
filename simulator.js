@@ -9,6 +9,11 @@ const GRID_SIZE = 80;
 const HEIGHT_MAX = 4;
 const FREQUENCY = 0.5;
 
+//for infinite terrain
+const PATCH_SIZE = 40; 
+const MAX_PATCHES = 9; 
+const patches = [];
+
 //view mode: 0=points, 1=wireframe, 2=faces
 let viewMode = 1;
 
@@ -123,10 +128,101 @@ function createWaterPlane(xmin, xmax, zmin, zmax) {
     return { positions, indices, colors, normals };
 }
 
+//VAO helper functions for patch slots
+function createTerrainVAO(slot) {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    
+    const aPos = gl.getAttribLocation(programFlat, "aPosition");
+    const aCol = gl.getAttribLocation(programFlat, "aColor");
+    const aNorm = gl.getAttribLocation(programFlat, "aNormal");
+    
+    //position
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.positionBuffer);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aPos);
+    
+    //color
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.colorBuffer);
+    gl.vertexAttribPointer(aCol, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aCol);
+    
+    //normal
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.normalBuffer);
+    gl.vertexAttribPointer(aNorm, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aNorm);
+    
+    //index buffer
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.indexBuffer);
+    
+    gl.bindVertexArray(null);
+    return vao;
+}
+
+function createTerrainLineVAO(slot) {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    
+    const aPos = gl.getAttribLocation(programFlat, "aPosition");
+    const aCol = gl.getAttribLocation(programFlat, "aColor");
+    const aNorm = gl.getAttribLocation(programFlat, "aNormal");
+    
+    //position
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.positionBuffer);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aPos);
+    
+    //color
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.colorBuffer);
+    gl.vertexAttribPointer(aCol, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aCol);
+    
+    //normal
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.normalBuffer);
+    gl.vertexAttribPointer(aNorm, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aNorm);
+    
+    //line index buffer
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.lineIndexBuffer);
+    
+    gl.bindVertexArray(null);
+    return vao;
+}
+
+function createWaterVAO(slot) {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    
+    const aPos = gl.getAttribLocation(programWater, "aPosition");
+    const aCol = gl.getAttribLocation(programWater, "aColor");
+    const aNorm = gl.getAttribLocation(programWater, "aNormal");
+    
+    //position
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.waterPositionBuffer);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aPos);
+    
+    //color
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.waterColorBuffer);
+    gl.vertexAttribPointer(aCol, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aCol);
+    
+    //normal
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.waterNormalBuffer);
+    gl.vertexAttribPointer(aNorm, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aNorm);
+    
+    //water index buffer
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.waterIndexBuffer);
+    
+    gl.bindVertexArray(null);
+    return vao;
+}
+
 //height to color function
 //takes y coordinate and colors terrain accordingly
 function height_to_color(y) {
-    const blue  = [0.0, 0.2, 0.8];   // water — deeper, less saturated
+    const blue  = [0.0, 0.45, 0.98];   // water — deeper, less saturated
     const green = [0.1, 0.6, 0.1];   // ground level
     const brown = [0.5, 0.3, 0.1];   // mid altitude
     const white = [1.0, 1.0, 1.0];   // peaks
@@ -277,6 +373,106 @@ function get_patch(xmin, xmax, zmin, zmax) {
     };
 }
 
+//upload patch data into a slot's pre-allocated buffers
+function uploadPatch(slot, patchX, patchZ) {
+    const xmin = patchX * PATCH_SIZE;
+    const xmax = xmin + PATCH_SIZE;
+    const zmin = patchZ * PATCH_SIZE;
+    const zmax = zmin + PATCH_SIZE;
+
+    const patch = get_patch(xmin, xmax, zmin, zmax);
+    const water = createWaterPlane(xmin, xmax, zmin, zmax);
+
+    //upload terrain data into slot buffers (DYNAMIC_DRAW allows rewriting)
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.positionBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, patch.positions);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.colorBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, patch.colors);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.normalBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, patch.normals);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.indexBuffer);
+    gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, patch.indices);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.lineIndexBuffer);
+    gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, patch.lineIndices);
+
+    //upload water data
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.waterPositionBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, water.positions);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.waterColorBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, water.colors);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.waterNormalBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, water.normals);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.waterIndexBuffer);
+    gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, water.indices);
+
+    //update slot metadata
+    slot.patchX = patchX;
+    slot.patchZ = patchZ;
+    slot.active = true;
+    slot.indexCount = patch.indices.length;
+    slot.lineIndexCount = patch.lineIndices.length;
+    slot.waterIndexCount = water.indices.length;
+}
+
+//get the grid coordinates of the patch the camera is currently in
+function getCurrentPatchCoords() {
+    return {
+        px: Math.floor(camera.position[0] / PATCH_SIZE),
+        pz: Math.floor(camera.position[2] / PATCH_SIZE),
+    };
+}
+
+//update terrain patches based on camera position
+function updateTerrain() {
+    const { px, pz } = getCurrentPatchCoords();
+
+    //build the set of patches we NEED (3x3 grid around current position)
+    const needed = new Set();
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dz = -1; dz <= 1; dz++) {
+            needed.add(`${px + dx},${pz + dz}`);
+        }
+    }
+
+    //find which patches we already HAVE
+    const have = new Set();
+    for (const slot of patches) {
+        if (slot.active) {
+            have.add(`${slot.patchX},${slot.patchZ}`);
+        }
+    }
+
+    //find what we need but don't have
+    for (const key of needed) {
+        if (!have.has(key)) {
+            const [npx, npz] = key.split(',').map(Number);
+
+            //find a slot to recycle — pick one that's NOT in the needed set
+            const recycled = patches.find(s => 
+                !s.active || !needed.has(`${s.patchX},${s.patchZ}`)
+            );
+
+            if (recycled) {
+                uploadPatch(recycled, npx, npz);
+            }
+        }
+    }
+
+    //mark slots that are no longer needed as inactive
+    for (const slot of patches) {
+        if (slot.active && !needed.has(`${slot.patchX},${slot.patchZ}`)) {
+            slot.active = false;
+        }
+    }
+}
+
 //gl state
 let positionBuffer;
 let indexBuffer;
@@ -294,134 +490,77 @@ let waterVAO;    // Vertex Array Object for water
 let uniformLocs = {};  // Cache uniform locations
 
 function initMesh() {
-    // ── Shader programs ──────────────────────────────────────────
+    //shader programs 
     programFlat   = createProgram(gl, vertexSrc, fragmentFlat);
     programSmooth = createProgram(gl, vertexSrc, fragmentSmooth);
     programPhong  = createProgram(gl, vertexSrc, fragmentPhong);
-    programWater  = createProgram(gl, vertexSrc, fragmentWater); // new
+    programWater  = createProgram(gl, vertexSrc, fragmentWater);
 
     currentProgram = programSmooth;
 
-    // ── Terrain patch ────────────────────────────────────────────
-    const patch = get_patch(-20, 20, -60, 0);
-    indexCount = patch.indices.length;
+    //generate sample patch to determine buffer sizes
+    const samplePatch = get_patch(0, PATCH_SIZE, 0, PATCH_SIZE);
+    const sampleWater = createWaterPlane(0, PATCH_SIZE, 0, PATCH_SIZE);
 
-    positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, patch.positions, gl.STATIC_DRAW);
+    //pre-allocate 9 patch slots with DYNAMIC_DRAW buffers
+    for (let i = 0; i < MAX_PATCHES; i++) {
+        const slot = {
+            patchX: null,
+            patchZ: null,
+            active: false,
+            indexCount: 0,
+            lineIndexCount: 0,
+            waterIndexCount: 0,
+            
+            //create buffers
+            positionBuffer: gl.createBuffer(),
+            colorBuffer: gl.createBuffer(),
+            normalBuffer: gl.createBuffer(),
+            indexBuffer: gl.createBuffer(),
+            lineIndexBuffer: gl.createBuffer(),
+            waterPositionBuffer: gl.createBuffer(),
+            waterColorBuffer: gl.createBuffer(),
+            waterNormalBuffer: gl.createBuffer(),
+            waterIndexBuffer: gl.createBuffer(),
+        };
 
-    indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, patch.indices, gl.STATIC_DRAW);
+        //pre-allocate buffer storage with DYNAMIC_DRAW
+        gl.bindBuffer(gl.ARRAY_BUFFER, slot.positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, samplePatch.positions.byteLength, gl.DYNAMIC_DRAW);
 
-    lineIndexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, lineIndexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, patch.lineIndices, gl.STATIC_DRAW);
-    lineIndexCount = patch.lineIndices.length;
+        gl.bindBuffer(gl.ARRAY_BUFFER, slot.colorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, samplePatch.colors.byteLength, gl.DYNAMIC_DRAW);
 
-    colorBuffer = gl.createBuffer();             // make this a global like positionBuffer
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, patch.colors, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, slot.normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, samplePatch.normals.byteLength, gl.DYNAMIC_DRAW);
 
-    normalBuffer = gl.createBuffer();            // same here
-    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, patch.normals, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, samplePatch.indices.byteLength, gl.DYNAMIC_DRAW);
 
-    // ── Water plane ──────────────────────────────────────────────
-    const water = createWaterPlane(-20, 20, -60, 0); // same bounds as terrain patch
-    waterIndexCount = water.indices.length;
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.lineIndexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, samplePatch.lineIndices.byteLength, gl.DYNAMIC_DRAW);
 
-    waterPositionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, waterPositionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, water.positions, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, slot.waterPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, sampleWater.positions.byteLength, gl.DYNAMIC_DRAW);
 
-    waterColorBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, waterColorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, water.colors, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, slot.waterColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, sampleWater.colors.byteLength, gl.DYNAMIC_DRAW);
 
-    waterNormalBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, waterNormalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, water.normals, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, slot.waterNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, sampleWater.normals.byteLength, gl.DYNAMIC_DRAW);
 
-    waterIndexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, waterIndexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, water.indices, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.waterIndexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sampleWater.indices.byteLength, gl.DYNAMIC_DRAW);
 
-    // ── Create Terrain VAO ──────────────────────────────────────────
-    terrainVAO = gl.createVertexArray();
-    gl.bindVertexArray(terrainVAO);
-    
-    // Position
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    const aPos = gl.getAttribLocation(programFlat, "aPosition");
-    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(aPos);
-    
-    // Color
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-    const aCol = gl.getAttribLocation(programFlat, "aColor");
-    gl.vertexAttribPointer(aCol, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(aCol);
-    
-    // Normal
-    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-    const aNorm = gl.getAttribLocation(programFlat, "aNormal");
-    gl.vertexAttribPointer(aNorm, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(aNorm);
-    
-    // Bind index buffer to VAO
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    
-    // ── Create Terrain Line VAO ──────────────────────────────────────
-    terrainLineVAO = gl.createVertexArray();
-    gl.bindVertexArray(terrainLineVAO);
-    
-    // Position
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(aPos);
-    
-    // Color
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-    gl.vertexAttribPointer(aCol, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(aCol);
-    
-    // Normal
-    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-    gl.vertexAttribPointer(aNorm, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(aNorm);
-    
-    // Bind line index buffer to VAO
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, lineIndexBuffer);
-    
-    // ── Create Water VAO ────────────────────────────────────────────
-    waterVAO = gl.createVertexArray();
-    gl.bindVertexArray(waterVAO);
-    
-    // Position
-    gl.bindBuffer(gl.ARRAY_BUFFER, waterPositionBuffer);
-    const aWaterPos = gl.getAttribLocation(programWater, "aPosition");
-    gl.vertexAttribPointer(aWaterPos, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(aWaterPos);
-    
-    // Color
-    gl.bindBuffer(gl.ARRAY_BUFFER, waterColorBuffer);
-    const aWaterCol = gl.getAttribLocation(programWater, "aColor");
-    gl.vertexAttribPointer(aWaterCol, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(aWaterCol);
-    
-    // Normal
-    gl.bindBuffer(gl.ARRAY_BUFFER, waterNormalBuffer);
-    const aWaterNorm = gl.getAttribLocation(programWater, "aNormal");
-    gl.vertexAttribPointer(aWaterNorm, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(aWaterNorm);
-    
-    // Bind index buffer to VAO
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, waterIndexBuffer);
-    
-    gl.bindVertexArray(null);  // Unbind VAO
+        //create VAOs for this slot
+        slot.vao = createTerrainVAO(slot);
+        slot.lineVao = createTerrainLineVAO(slot);
+        slot.waterVao = createWaterVAO(slot);
 
-    // ── Cache uniform locations for ALL programs (use string keys, not program objects) ───────────────────────────────
+        patches.push(slot);
+    }
+
+    //uniform locations for ALL programs 
     const programs = {
         flat:   programFlat,
         smooth: programSmooth,
@@ -440,6 +579,17 @@ function initMesh() {
     }
 
     gl.enable(gl.DEPTH_TEST);
+
+    //Initialize with starting 3×3 patch grid
+    const startPX = Math.floor(camera.position[0] / PATCH_SIZE);
+    const startPZ = Math.floor(camera.position[2] / PATCH_SIZE);
+
+    let slotIdx = 0;
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dz = -1; dz <= 1; dz++) {
+            uploadPatch(patches[slotIdx++], startPX + dx, startPZ + dz);
+        }
+    }
 }
 
 let lastTime = Date.now();
@@ -451,13 +601,15 @@ function render() {
 
     handleInput(deltaTime);
 
+    updateTerrain();
+
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const proj = frustumMatrix(frustum.left, frustum.right, frustum.top, frustum.bottom, frustum.near, frustum.far);
     const view = lookAt(camera.position, add(camera.position, camera.forward), camera.up);
 
-    // ── Shading mode selection ────────────────────────────────────
+    //shading mode selection
     const progName = shadingMode === 0 ? 'flat' : shadingMode === 1 ? 'smooth' : 'phong';
     if (shadingMode === 0) currentProgram = programFlat;
     else if (shadingMode === 1) currentProgram = programSmooth;
@@ -465,27 +617,30 @@ function render() {
 
     gl.useProgram(currentProgram);
 
-    // ── Terrain uniforms (use cached locations with string key) ──────────────────────────────
+    //terrain uniforms (use cached locations with string key) 
     const locs = uniformLocs[progName];
     gl.uniformMatrix4fv(locs.uProj, false, proj);
     gl.uniformMatrix4fv(locs.uView, false, view);
     if (locs.uLightPos) gl.uniform3f(locs.uLightPos, 10, 15, 10);
     if (locs.uViewPos)  gl.uniform3f(locs.uViewPos, camera.position[0], camera.position[1], camera.position[2]);
 
-    // ── Re-bind terrain attribs (use VAO) ────────────────────────────────
-    // Terrain draw ──────────────────────────────────────────────
-    if (viewMode === 0) {
-        gl.bindVertexArray(terrainVAO);
-        gl.drawElements(gl.POINTS, indexCount, gl.UNSIGNED_INT, 0);
-    } else if (viewMode === 1) {
-        gl.bindVertexArray(terrainLineVAO);
-        gl.drawElements(gl.LINES, lineIndexCount, gl.UNSIGNED_INT, 0);
-    } else {
-        gl.bindVertexArray(terrainVAO);
-        gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_INT, 0);
+    //draw all active terrain patches
+    for (const slot of patches) {
+        if (!slot.active) continue;
+
+        if (viewMode === 0) {
+            gl.bindVertexArray(slot.vao);
+            gl.drawElements(gl.POINTS, slot.indexCount, gl.UNSIGNED_INT, 0);
+        } else if (viewMode === 1) {
+            gl.bindVertexArray(slot.lineVao);
+            gl.drawElements(gl.LINES, slot.lineIndexCount, gl.UNSIGNED_INT, 0);
+        } else {
+            gl.bindVertexArray(slot.vao);
+            gl.drawElements(gl.TRIANGLES, slot.indexCount, gl.UNSIGNED_INT, 0);
+        }
     }
 
-    // ── Water draw (faces only, no wireframe/points for water) ────
+    //water draw (faces only, no wireframe/points for water)
     if (viewMode === 2) {
         gl.useProgram(programWater);
 
@@ -493,8 +648,12 @@ function render() {
         if (waterLocs.uProj) gl.uniformMatrix4fv(waterLocs.uProj, false, proj);
         if (waterLocs.uView) gl.uniformMatrix4fv(waterLocs.uView, false, view);
 
-        gl.bindVertexArray(waterVAO);
-        gl.drawElements(gl.TRIANGLES, waterIndexCount, gl.UNSIGNED_INT, 0);
+        //draw all active water patches
+        for (const slot of patches) {
+            if (!slot.active) continue;
+            gl.bindVertexArray(slot.waterVao);
+            gl.drawElements(gl.TRIANGLES, slot.waterIndexCount, gl.UNSIGNED_INT, 0);
+        }
     }
 
     requestAnimationFrame(render);
